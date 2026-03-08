@@ -2,7 +2,7 @@
 
 A cross-platform personal file catalogue with AI-powered natural language search.
 
-Index files across multiple machines into a central SQLite catalogue. Search with natural language, powered by Claude.
+Index files across multiple machines into a central SQLite catalogue. Search with natural language using your choice of AI backend.
 
 ## Features
 
