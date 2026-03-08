@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Indexara</title>
+  <link rel="stylesheet" href="/web/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>Indexara</h1>
+      <div class="mode-toggle">
+        <button id="btn-search" class="mode-btn active" data-mode="search">Search</button>
+        <button id="btn-ask" class="mode-btn" data-mode="ask">Ask</button>
+        <button id="btn-insights" class="mode-btn" data-mode="insights">Insights</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="search-container">
+      <form id="search-form">
+        <input
+          id="query-input"
+          type="text"
+          placeholder="Search files... e.g. FLAC albums by Radiohead"
+          autocomplete="off"
+          autofocus
+        >
+        <button type="submit" id="submit-btn">Search</button>
+      </form>
+      <div id="status-bar"></div>
+    </div>
+
+    <div id="results-container">
+      <div id="results"></div>
+    </div>
+  </main>
+
+  <script src="/web/app.js"></script>
+</body>
+</html>

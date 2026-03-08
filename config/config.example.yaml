@@ -1,0 +1,42 @@
+# Indexara configuration example
+# Copy to ~/.indexara/config.yaml and adjust
+
+# Device identification
+device_name: my-laptop
+
+# Database paths (defaults shown)
+catalog_db_path: ~/.indexara/catalog.db
+search_db_path: ~/.indexara/search.db
+
+# Indexer mode: "local" (write direct to SQLite) or "push" (send to server)
+mode: local
+
+# Server URL (used in push mode or for CLI --server flag)
+server_url: http://localhost:8000
+
+# Optional: protect the API with a key
+# api_key: your-secret-key
+
+# Paths to index (used by `indexara index` with no arguments)
+paths:
+  - ~/Documents
+  - ~/Music
+  - ~/Pictures
+
+# Additional exclusion patterns (gitignore syntax)
+exclude:
+  - "*.log"
+  - "**/tmp/**"
+
+# Anthropic API key (or set ANTHROPIC_API_KEY env var)
+# anthropic_api_key: sk-ant-...
+
+# Steam Workshop API key (optional, for name resolution)
+# steam_api_key: ...
+
+# Server host/port
+host: 0.0.0.0
+port: 8000
+
+# Log level: DEBUG, INFO, WARNING, ERROR
+log_level: INFO

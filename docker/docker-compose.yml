@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    ports:
+      - "8000:8000"
+    volumes:
+      - indexara_data:/data
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - INDEXARA_CATALOG_DB_PATH=/data/catalog.db
+      - INDEXARA_SEARCH_DB_PATH=/data/search.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/devices"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  agent:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.agent
+    volumes:
+      - /:/host:ro
+      - ~/.indexara/config.yaml:/app/config.yaml:ro
+    environment:
+      - INDEXARA_SERVER_URL=http://server:8000
+      - INDEXARA_INDEX_MODE=push
+      - INDEXARA_DEVICE_NAME=${HOSTNAME:-agent}
+    depends_on:
+      - server
+    profiles:
+      - agent
+
+volumes:
+  indexara_data:
