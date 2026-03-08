@@ -3,6 +3,8 @@
 
   let currentMode = 'search';
   let debounceTimer = null;
+  let currentResults = [];
+  let currentSort = 'relevance';
 
   const form = document.getElementById('search-form');
   const input = document.getElementById('query-input');
@@ -10,6 +12,17 @@
   const results = document.getElementById('results');
   const statusBar = document.getElementById('status-bar');
   const modeButtons = document.querySelectorAll('.mode-btn');
+  const sortBar = document.getElementById('sort-bar');
+
+  // Sort bar
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentSort = btn.dataset.sort;
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderSearchResults(currentResults, currentResults.length);
+    });
+  });
 
   // Mode toggle
   modeButtons.forEach(btn => {
@@ -19,13 +32,24 @@
       btn.classList.add('active');
 
       const searchContainer = document.querySelector('.search-container');
+      const quickFilters = document.getElementById('quick-filters');
       if (currentMode === 'insights') {
         searchContainer.style.display = 'none';
+        sortBar.style.display = 'none';
         results.innerHTML = '';
         statusBar.textContent = '';
         doInsights();
+      } else if (currentMode === 'scan') {
+        searchContainer.style.display = 'none';
+        sortBar.style.display = 'none';
+        results.innerHTML = '';
+        statusBar.textContent = '';
+        doScanPanel();
       } else {
+        stopScanPoll();
         searchContainer.style.display = '';
+        sortBar.style.display = 'none';
+        quickFilters.style.display = currentMode === 'search' ? '' : 'none';
         if (currentMode === 'search') {
           input.placeholder = 'Search files... e.g. FLAC albums by Radiohead';
           submitBtn.textContent = 'Search';
@@ -38,6 +62,26 @@
         input.focus();
       }
     });
+  });
+
+  // Quick filter chips
+  document.querySelectorAll('.qf-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = btn.dataset.query;
+      // Switch to search mode if not already
+      if (currentMode !== 'search') {
+        document.getElementById('btn-search').click();
+      }
+      input.value = q;
+      document.querySelectorAll('.qf-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      runQuery(q);
+    });
+  });
+
+  // Clear active chip when user types manually
+  input.addEventListener('keydown', () => {
+    document.querySelectorAll('.qf-btn').forEach(b => b.classList.remove('active'));
   });
 
   // Form submit
@@ -85,11 +129,18 @@
 
   async function doSearch(q) {
     setLoading(true);
+    sortBar.style.display = 'none';
     try {
-      const res = await fetch(`/search?q=${encodeURIComponent(q)}&limit=50`);
+      const res = await fetch(`/search?q=${encodeURIComponent(q)}&limit=200`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      renderSearchResults(data.results, data.count);
+      currentResults = data.results || [];
+      currentSort = 'relevance';
+      document.querySelectorAll('.sort-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.sort === 'relevance');
+      });
+      if (currentResults.length > 0) sortBar.style.display = '';
+      renderSearchResults(currentResults, data.count);
       statusBar.textContent = `${data.count} result${data.count !== 1 ? 's' : ''} found`;
     } catch (err) {
       renderError(err.message);
@@ -121,8 +172,33 @@
     }
   }
 
+  function sortedItems(items) {
+    const arr = [...items];
+    switch (currentSort) {
+      case 'name':
+        return arr.sort((a, b) => (a.filename || '').localeCompare(b.filename || ''));
+      case 'size-desc':
+        return arr.sort((a, b) => (b.size || 0) - (a.size || 0));
+      case 'size-asc':
+        return arr.sort((a, b) => (a.size || 0) - (b.size || 0));
+      case 'date-desc':
+        return arr.sort((a, b) => (b.modified_at || 0) - (a.modified_at || 0));
+      case 'date-asc':
+        return arr.sort((a, b) => (a.modified_at || 0) - (b.modified_at || 0));
+      case 'type':
+        return arr.sort((a, b) => {
+          const ta = `${a.type_group || ''}/${a.type_subgroup || ''}`;
+          const tb = `${b.type_group || ''}/${b.type_subgroup || ''}`;
+          return ta.localeCompare(tb) || (a.filename || '').localeCompare(b.filename || '');
+        });
+      default: // relevance — original order
+        return arr;
+    }
+  }
+
   function renderSearchResults(items, count) {
     if (!items || items.length === 0) {
+      sortBar.style.display = 'none';
       results.innerHTML = `
         <div class="empty-state">
           <div class="icon">&#128269;</div>
@@ -130,7 +206,7 @@
         </div>`;
       return;
     }
-    results.innerHTML = items.map(renderResultCard).join('');
+    results.innerHTML = sortedItems(items).map(renderResultCard).join('');
   }
 
   function renderResultCard(r) {
@@ -201,67 +277,315 @@
     results.innerHTML = `<div class="error-banner">Error: ${escHtml(msg)}</div>`;
   }
 
-  function renderInsights(data) {
-    const sections = [];
+  function insightsSection(id, title, icon, bodyHtml) {
+    return `
+      <div class="insights-section" id="isec-${id}">
+        <button class="insights-section-header" onclick="
+          var b = document.getElementById('isec-${id}');
+          b.classList.toggle('collapsed');
+        ">
+          <span class="insights-section-icon">${icon}</span>
+          <span class="insights-title">${title}</span>
+          <span class="insights-chevron">&#8964;</span>
+        </button>
+        <div class="insights-section-body">${bodyHtml}</div>
+      </div>`;
+  }
 
+  function renderInsights(data) {
     // Largest Files
     const lf = data.largest_files || [];
-    sections.push(`
-      <div class="insights-section">
-        <h2 class="insights-title">Largest Files</h2>
-        ${lf.length ? lf.map(r => `
-          <div class="insights-row">
-            <span class="insights-size">${formatSize(r.size || 0)}</span>
-            <span class="insights-name">${escHtml(r.filename)}</span>
-            <span class="insights-path">${escHtml(r.path)}</span>
-          </div>`).join('') : '<p class="insights-empty">No data</p>'}
-      </div>`);
+    const lfBody = lf.length ? `
+      <table class="insights-table">
+        <thead><tr><th>Size</th><th>Filename</th><th>Path</th></tr></thead>
+        <tbody>${lf.map(r => `
+          <tr>
+            <td class="insights-td-size">${formatSize(r.size || 0)}</td>
+            <td class="insights-td-name">${escHtml(r.filename)}</td>
+            <td class="insights-td-path">${escHtml(r.path)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : '<p class="insights-empty">No data</p>';
 
     // Recently Added
     const rf = data.recent_files || [];
-    sections.push(`
-      <div class="insights-section">
-        <h2 class="insights-title">Recently Added</h2>
-        ${rf.length ? rf.map(r => `
-          <div class="insights-row">
-            <span class="insights-size">${r.created_at ? formatDate(r.created_at) : ''}</span>
-            <span class="insights-name">${escHtml(r.filename)}</span>
-            <span class="insights-path">${escHtml(r.path)}</span>
-          </div>`).join('') : '<p class="insights-empty">No data</p>'}
-      </div>`);
+    const rfBody = rf.length ? `
+      <table class="insights-table">
+        <thead><tr><th>Date</th><th>Filename</th><th>Path</th></tr></thead>
+        <tbody>${rf.map(r => `
+          <tr>
+            <td class="insights-td-size">${r.created_at ? formatDate(r.created_at) : ''}</td>
+            <td class="insights-td-name">${escHtml(r.filename)}</td>
+            <td class="insights-td-path">${escHtml(r.path)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : '<p class="insights-empty">No data</p>';
 
     // Duplicate Files
     const dups = data.duplicate_files || [];
-    sections.push(`
-      <div class="insights-section">
-        <h2 class="insights-title">Duplicate Files</h2>
-        ${dups.length ? dups.map(d => `
-          <div class="insights-dup-group">
-            <div class="insights-dup-header">
-              <span class="insights-dup-copies">${d.copies} copies</span>
-              <span class="insights-dup-hash">${escHtml(d.content_hash.slice(0, 16))}…</span>
-              <span class="insights-dup-wasted">${formatSize(d.wasted_bytes || 0)} wasted</span>
-            </div>
-            ${(d.files || []).map(f => `
-              <div class="insights-dup-file">${escHtml(f.path)}</div>`).join('')}
-          </div>`).join('') : '<p class="insights-empty">No duplicates found</p>'}
-      </div>`);
+    const dupsBody = dups.length ? dups.map(d => `
+      <div class="insights-dup-group">
+        <div class="insights-dup-header">
+          <span class="insights-dup-copies">${d.copies} copies</span>
+          <span class="insights-dup-hash">${escHtml(d.content_hash.slice(0, 16))}…</span>
+          <span class="insights-dup-wasted">${formatSize(d.wasted_bytes || 0)} wasted</span>
+        </div>
+        ${(d.files || []).map(f => `
+          <div class="insights-dup-file">${escHtml(f.path)}</div>`).join('')}
+      </div>`).join('') : '<p class="insights-empty">No duplicates found</p>';
 
     // Largest Folders
     const folders = data.largest_folders || [];
-    sections.push(`
-      <div class="insights-section">
-        <h2 class="insights-title">Largest Folders</h2>
-        ${folders.length ? folders.map(r => `
-          <div class="insights-row">
-            <span class="insights-size">${formatSize(r.total_size || 0)}</span>
-            <span class="insights-count">${r.file_count} files</span>
-            <span class="insights-path">${escHtml(r.folder)}</span>
-          </div>`).join('') : '<p class="insights-empty">No data</p>'}
-      </div>`);
+    const foldersBody = folders.length ? `
+      <table class="insights-table">
+        <thead><tr><th>Total Size</th><th>Files</th><th>Folder</th></tr></thead>
+        <tbody>${folders.map(r => `
+          <tr>
+            <td class="insights-td-size">${formatSize(r.total_size || 0)}</td>
+            <td class="insights-td-count">${r.file_count}</td>
+            <td class="insights-td-path">${escHtml(r.folder)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : '<p class="insights-empty">No data</p>';
 
-    results.innerHTML = `<div class="insights-grid">${sections.join('')}</div>`;
+    results.innerHTML = `
+      <div class="insights-stack">
+        ${insightsSection('largest', 'Largest Files', '📦', lfBody)}
+        ${insightsSection('recent', 'Recently Added', '🕐', rfBody)}
+        ${insightsSection('dupes', 'Duplicate Files', '🗂', dupsBody)}
+        ${insightsSection('folders', 'Largest Folders', '📁', foldersBody)}
+      </div>`;
   }
+
+  // ── Scan panel ──────────────────────────────────────────────────────────────
+  let _scanPollTimer = null;
+  let _scanPaths = [];
+
+  async function doScanPanel() {
+    stopScanPoll();
+    const [statsRes, statusRes] = await Promise.all([
+      fetch('/scan/stats').then(r => r.json()).catch(() => null),
+      fetch('/scan/status').then(r => r.json()).catch(() => ({})),
+    ]);
+    _scanPaths = statusRes.paths && statusRes.paths.length ? statusRes.paths : [];
+    renderScanPanel(statsRes, statusRes);
+    if (statusRes.state === 'running') startScanPoll();
+  }
+
+  function renderScanPanel(stats, status) {
+    const typeIcons = { audio:'🎵', video:'🎬', image:'🖼', document:'📄', code:'💻', archive:'📦', data:'🗄', other:'📁' };
+
+    const statsHtml = stats ? `
+      <div class="scan-stats-grid">
+        <div class="scan-stat-card">
+          <div class="scan-stat-value">${stats.total_files.toLocaleString()}</div>
+          <div class="scan-stat-label">Total Files</div>
+        </div>
+        <div class="scan-stat-card">
+          <div class="scan-stat-value">${formatSize(stats.total_size || 0)}</div>
+          <div class="scan-stat-label">Total Size</div>
+        </div>
+        <div class="scan-stat-card">
+          <div class="scan-stat-value">${stats.last_indexed ? formatDate(stats.last_indexed) : '—'}</div>
+          <div class="scan-stat-label">Last Indexed</div>
+        </div>
+      </div>
+      <div class="scan-type-chips">${(stats.by_type || []).map(t =>
+        `<span class="scan-type-chip badge badge-${t.type_group}">${typeIcons[t.type_group] || '📁'} ${t.type_group} <span class="scan-type-count">${t.count.toLocaleString()}</span></span>`
+      ).join('')}</div>` : '';
+
+    const isRunning = status.state === 'running';
+    const isDone    = status.state === 'done';
+    const isError   = status.state === 'error';
+
+    let progressHtml = '';
+    if (isRunning) {
+      progressHtml = `
+        <div class="scan-progress">
+          <div class="scan-progress-bar"><div class="scan-progress-fill"></div></div>
+          <div class="scan-progress-stats">
+            <span class="scan-p-indexed">${(status.files_indexed || 0).toLocaleString()} indexed</span>
+            <span class="scan-p-skipped">${(status.files_skipped || 0).toLocaleString()} skipped</span>
+            ${status.current_path ? `<span class="scan-p-path">${escHtml(status.current_path)}</span>` : ''}
+          </div>
+        </div>`;
+    } else if (isDone) {
+      const elapsed = status.finished_at && status.started_at ? ((status.finished_at - status.started_at)).toFixed(0) : '';
+      progressHtml = `<div class="scan-done">✓ Scan complete — ${(status.files_indexed || 0).toLocaleString()} indexed, ${(status.files_skipped || 0).toLocaleString()} skipped${elapsed ? ` in ${elapsed}s` : ''}</div>`;
+    } else if (isError) {
+      progressHtml = `<div class="scan-error">✗ Scan failed: ${escHtml(status.error || 'unknown error')}</div>`;
+    }
+
+    results.innerHTML = `
+      <div class="scan-panel">
+        <div class="scan-section">
+          <h2 class="scan-section-title">📊 Catalogue</h2>
+          ${statsHtml || '<p class="scan-empty">No files indexed yet.</p>'}
+        </div>
+
+        <div class="scan-section">
+          <h2 class="scan-section-title">📂 Paths to Scan</h2>
+          <div id="scan-path-list">${renderPathList()}</div>
+          <div class="scan-add-row">
+            <input id="scan-path-input" class="scan-path-input" type="text" placeholder="/path/to/directory">
+            <button class="scan-browse-btn" onclick="window._fbOpen()">Browse…</button>
+            <button class="scan-add-btn" onclick="window._scanAddPath()">Add</button>
+          </div>
+        </div>
+
+        ${progressHtml ? `<div class="scan-section">${progressHtml}</div>` : ''}
+
+        <div class="scan-actions">
+          <button class="scan-start-btn ${isRunning ? 'scan-running' : ''}" id="scan-start-btn"
+            onclick="window._scanStart()" ${isRunning ? 'disabled' : ''}>
+            ${isRunning ? '⏳ Scanning…' : '▶ Start Scan'}
+          </button>
+          <label class="scan-force-label">
+            <input type="checkbox" id="scan-force"> Force re-index all files
+          </label>
+        </div>
+      </div>`;
+
+    // Re-attach enter key on path input
+    const pathInput = document.getElementById('scan-path-input');
+    if (pathInput) {
+      pathInput.addEventListener('keydown', e => { if (e.key === 'Enter') window._scanAddPath(); });
+    }
+  }
+
+  function renderPathList() {
+    if (!_scanPaths.length) return '<p class="scan-empty">No paths added.</p>';
+    return _scanPaths.map((p, i) => `
+      <div class="scan-path-row">
+        <span class="scan-path-text">${escHtml(p)}</span>
+        <button class="scan-path-remove" onclick="window._scanRemovePath(${i})">✕</button>
+      </div>`).join('');
+  }
+
+  window._scanAddPath = function() {
+    const input = document.getElementById('scan-path-input');
+    const val = (input?.value || '').trim();
+    if (!val || _scanPaths.includes(val)) { if (input) input.value = ''; return; }
+    _scanPaths.push(val);
+    if (input) input.value = '';
+    const list = document.getElementById('scan-path-list');
+    if (list) list.innerHTML = renderPathList();
+  };
+
+  window._scanRemovePath = function(idx) {
+    _scanPaths.splice(idx, 1);
+    const list = document.getElementById('scan-path-list');
+    if (list) list.innerHTML = renderPathList();
+  };
+
+  window._scanStart = async function() {
+    if (!_scanPaths.length) {
+      alert('Add at least one path to scan.');
+      return;
+    }
+    const force = document.getElementById('scan-force')?.checked || false;
+    const btn = document.getElementById('scan-start-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Scanning…'; btn.classList.add('scan-running'); }
+    try {
+      const res = await fetch('/scan/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: _scanPaths, force }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      startScanPoll();
+    } catch (e) {
+      alert(`Failed to start scan: ${e.message}`);
+      if (btn) { btn.disabled = false; btn.textContent = '▶ Start Scan'; btn.classList.remove('scan-running'); }
+    }
+  };
+
+  function startScanPoll() {
+    stopScanPoll();
+    _scanPollTimer = setInterval(async () => {
+      if (currentMode !== 'scan') { stopScanPoll(); return; }
+      try {
+        const [statusRes, statsRes] = await Promise.all([
+          fetch('/scan/status').then(r => r.json()),
+          fetch('/scan/stats').then(r => r.json()).catch(() => null),
+        ]);
+        renderScanPanel(statsRes, statusRes);
+        if (statusRes.state !== 'running') stopScanPoll();
+      } catch (_) {}
+    }, 1500);
+  }
+
+  function stopScanPoll() {
+    if (_scanPollTimer) { clearInterval(_scanPollTimer); _scanPollTimer = null; }
+  }
+
+  // ── File browser modal ──────────────────────────────────────────────────────
+  let _fbCurrentPath = '/';
+
+  window._fbOpen = function(startPath) {
+    _fbCurrentPath = startPath || document.getElementById('scan-path-input')?.value.trim() || '/home';
+    document.getElementById('fb-overlay').style.display = 'flex';
+    _fbNavigate(_fbCurrentPath);
+  };
+
+  window._fbClose = function() {
+    document.getElementById('fb-overlay').style.display = 'none';
+  };
+
+  window._fbSelect = function() {
+    const input = document.getElementById('scan-path-input');
+    if (input) input.value = _fbCurrentPath;
+    window._fbClose();
+  };
+
+  window._fbNavigate = async function(path) {
+    _fbCurrentPath = path;
+    const list = document.getElementById('fb-list');
+    const crumbs = document.getElementById('fb-breadcrumbs');
+    const currentPathEl = document.getElementById('fb-current-path');
+    list.innerHTML = '<div class="fb-loading">Loading…</div>';
+
+    try {
+      const res = await fetch(`/fs/browse?path=${encodeURIComponent(path)}`);
+      if (!res.ok) throw new Error((await res.json()).detail || `HTTP ${res.status}`);
+      const data = await res.json();
+      _fbCurrentPath = data.path;
+
+      // Breadcrumbs
+      crumbs.innerHTML = data.breadcrumbs.map((c, i) =>
+        `<button class="fb-crumb ${i === data.breadcrumbs.length - 1 ? 'fb-crumb-active' : ''}"
+          onclick="window._fbNavigate(${JSON.stringify(c.path)})">${escHtml(c.name)}</button>`
+      ).join('<span class="fb-crumb-sep">›</span>');
+
+      // Directory list
+      if (data.parent) {
+        list.innerHTML = `<div class="fb-entry fb-entry-up" onclick="window._fbNavigate(${JSON.stringify(data.parent)})">
+          <span class="fb-entry-icon">⬆</span><span class="fb-entry-name">..</span>
+        </div>`;
+      } else {
+        list.innerHTML = '';
+      }
+
+      if (data.entries.length === 0) {
+        list.innerHTML += '<div class="fb-empty">No subdirectories</div>';
+      } else {
+        list.innerHTML += data.entries.map(e =>
+          `<div class="fb-entry" onclick="window._fbNavigate(${JSON.stringify(e.path)})">
+            <span class="fb-entry-icon">📁</span>
+            <span class="fb-entry-name">${escHtml(e.name)}</span>
+          </div>`
+        ).join('');
+      }
+
+      if (currentPathEl) currentPathEl.textContent = data.path;
+
+    } catch (err) {
+      list.innerHTML = `<div class="fb-error">${escHtml(err.message)}</div>`;
+    }
+  };
 
   function escHtml(str) {
     if (!str) return '';

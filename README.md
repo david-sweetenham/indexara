@@ -8,6 +8,12 @@ Index files across multiple machines into a central SQLite catalogue. Search wit
 
 - **Natural language search** — "FLAC albums by Radiohead", "documents about taxes"
 - **AI question answering** — "What documents mention broadband costs?"
+- **Web UI** — browser-based interface with search, ask, insights, and scan tabs
+- **Quick filters** — one-click chips for Music, FLAC, MP3, Videos, Images, Documents, Large Files, Recent
+- **Sortable results** — sort by relevance, name, size, date, or type
+- **Insights dashboard** — disk usage breakdown with collapsible sections (largest files, duplicates, top folders)
+- **Web-triggered scans** — kick off indexing runs from the browser with live progress
+- **File system browser** — browse your directory tree visually instead of typing paths
 - **Multi-machine support** — index from any number of devices
 - **Audio metadata** — artist, album, title extracted from FLAC, MP3, M4A, OGG, WAV
 - **Document text extraction** — PDF, DOCX, TXT, Markdown indexed for full-text search
@@ -60,9 +66,15 @@ indexara ask "what documents mention project budgets?"
 ### Start the web UI
 
 ```bash
-python -m indexara.server.main
+indexara serve
 # Open http://localhost:8000
 ```
+
+The web UI provides:
+- **Search** — natural language search with quick filter chips and sortable results
+- **Ask** — AI-powered question answering over your file catalogue
+- **Insights** — disk usage analysis with collapsible breakdowns
+- **Scan** — browse your filesystem and kick off indexing runs with live progress
 
 ## Single-machine mode (local)
 
@@ -82,7 +94,7 @@ Run the server on one machine, agents on others.
 
 **Server machine:**
 ```bash
-python -m indexara.server.main
+indexara serve
 ```
 
 **Agent machines:**
@@ -124,6 +136,10 @@ docker compose --profile agent up
 | `/index` | POST | Receive index batch (from agents) |
 | `/devices` | GET | List indexed devices |
 | `/insights` | GET | Disk usage insights (largest files, duplicates, folders) |
+| `/scan/start` | POST | Start a background indexing scan |
+| `/scan/status` | GET | Poll scan progress (state, files_indexed, files_skipped) |
+| `/scan/stats` | GET | Catalogue summary (total files, size, breakdown by type) |
+| `/fs/browse?path=` | GET | List subdirectories for the file browser UI |
 
 ## File Type Support
 
@@ -140,6 +156,7 @@ docker compose --profile agent up
 
 ```
 indexara index [ROOTS...] [--push] [--force] [--config PATH]
+indexara serve [--host HOST] [--port PORT] [--config PATH]
 indexara search QUERY [--limit N] [--server] [--config PATH]
 indexara ask QUESTION [--server] [--config PATH]
 indexara insights [--limit N] [--server] [--config PATH]

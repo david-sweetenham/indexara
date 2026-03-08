@@ -267,5 +267,26 @@ def _insights_via_server(cfg, limit: int):
         raise typer.Exit(1)
 
 
+@app.command()
+def serve(
+    host: str = typer.Option(None, "--host", help="Bind host (default from config)"),
+    port: int = typer.Option(None, "--port", "-p", help="Port (default from config)"),
+    config: Optional[str] = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Start the Indexara web server."""
+    import uvicorn
+    from ..server.app import create_app
+
+    cfg = _get_config(config)
+    if host:
+        cfg.host = host
+    if port:
+        cfg.port = port
+
+    app_instance = create_app(cfg)
+    console.print(f"[bold green]Indexara server starting on http://{cfg.host}:{cfg.port}[/bold green]")
+    uvicorn.run(app_instance, host=cfg.host, port=cfg.port, log_level=cfg.log_level.lower())
+
+
 if __name__ == "__main__":
     app()
