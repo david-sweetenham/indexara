@@ -121,7 +121,11 @@ indexara index
 ### Server only
 
 ```bash
+# With Anthropic (optional):
 ANTHROPIC_API_KEY=sk-ant-... docker compose up server
+
+# With Ollama or local backend — no key needed:
+docker compose up server
 ```
 
 ### With agent
