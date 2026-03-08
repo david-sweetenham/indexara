@@ -26,7 +26,10 @@ Index files across multiple machines into a central SQLite catalogue. Search wit
 ### Prerequisites
 
 - Python 3.11+
-- An [Anthropic API key](https://console.anthropic.com/)
+- An AI backend — one of:
+  - [Anthropic API key](https://console.anthropic.com/) (cloud)
+  - [Ollama](https://ollama.com/) running locally (free, no API key needed)
+  - Any OpenAI-compatible endpoint (LM Studio, etc.)
 
 ### Install
 
@@ -41,7 +44,9 @@ pip install -e .
 ```bash
 mkdir -p ~/.indexara
 cp config/config.example.yaml ~/.indexara/config.yaml
-# Edit ~/.indexara/config.yaml — set your paths and Anthropic API key
+# Edit ~/.indexara/config.yaml — set your paths and AI backend
+
+# If using Anthropic (optional):
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
