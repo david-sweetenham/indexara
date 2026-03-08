@@ -15,11 +15,11 @@ def execute_search(
     query: str,
     catalog_conn: sqlite3.Connection,
     search_conn: sqlite3.Connection,
-    anthropic_client,
+    config,
     limit: int = 50,
 ) -> list[SearchResult]:
     """Run a natural language search and return ranked results."""
-    interpretation = interpret_query(query, anthropic_client)
+    interpretation = interpret_query(query, config)
     logger.debug("Query interpretation: %s", interpretation)
     return _execute_interpreted(interpretation, catalog_conn, search_conn)
 
@@ -81,10 +81,10 @@ def execute_ask(
     question: str,
     catalog_conn: sqlite3.Connection,
     search_conn: sqlite3.Connection,
-    anthropic_client,
+    config,
 ) -> AskResponse:
     """Answer a question using file content as context."""
-    results = execute_search(question, catalog_conn, search_conn, anthropic_client, limit=10)
+    results = execute_search(question, catalog_conn, search_conn, config, limit=10)
 
     # Fetch text content for top results
     content_snippets: list[tuple[str, str]] = []
@@ -98,5 +98,5 @@ def execute_ask(
         else:
             content_snippets.append((result.filename, result.snippet or ""))
 
-    answer = synthesize_answer(question, results, content_snippets, anthropic_client)
+    answer = synthesize_answer(question, results, content_snippets, config)
     return AskResponse(answer=answer, sources=results[:5])

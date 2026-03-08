@@ -45,13 +45,11 @@ def _search_local(query: str, limit: int, cfg):
     from .output import render_search_results
     from ..db.connection import get_catalog_conn, get_search_conn
     from ..search.executor import execute_search
-    import anthropic
 
     cat_conn = get_catalog_conn(cfg.catalog_db_path)
     srch_conn = get_search_conn(cfg.search_db_path)
-    client = anthropic.Anthropic(api_key=cfg.anthropic_api_key)
 
-    results = execute_search(query, cat_conn, srch_conn, client, limit)
+    results = execute_search(query, cat_conn, srch_conn, cfg, limit)
     render_search_results(results)
 
 
@@ -98,13 +96,11 @@ def _ask_local(question: str, cfg):
     from .output import render_ask_answer
     from ..db.connection import get_catalog_conn, get_search_conn
     from ..search.executor import execute_ask
-    import anthropic
 
     cat_conn = get_catalog_conn(cfg.catalog_db_path)
     srch_conn = get_search_conn(cfg.search_db_path)
-    client = anthropic.Anthropic(api_key=cfg.anthropic_api_key)
 
-    response = execute_ask(question, cat_conn, srch_conn, client)
+    response = execute_ask(question, cat_conn, srch_conn, cfg)
     render_ask_answer(response.answer)
     if response.sources:
         console.print(f"\n[dim]Sources: {', '.join(s.filename for s in response.sources[:5])}[/dim]")

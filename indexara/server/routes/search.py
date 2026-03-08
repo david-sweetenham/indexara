@@ -25,7 +25,7 @@ async def search_files(
     loop = asyncio.get_event_loop()
     results = await loop.run_in_executor(
         _executor,
-        lambda: execute_search(q, cat_conn, srch_conn, _get_anthropic(config), limit),
+        lambda: execute_search(q, cat_conn, srch_conn, config, limit),
     )
     return {"results": [r.model_dump() for r in results], "query": q, "count": len(results)}
 
@@ -40,11 +40,6 @@ async def ask_files(
     loop = asyncio.get_event_loop()
     response = await loop.run_in_executor(
         _executor,
-        lambda: execute_ask(q, cat_conn, srch_conn, _get_anthropic(config)),
+        lambda: execute_ask(q, cat_conn, srch_conn, config),
     )
     return response.model_dump()
-
-
-def _get_anthropic(config):
-    import anthropic
-    return anthropic.Anthropic(api_key=config.anthropic_api_key)

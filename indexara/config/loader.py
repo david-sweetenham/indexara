@@ -50,6 +50,12 @@ def load_config(path: str | Path | None = None) -> Config:
         kwargs["host"] = data["host"]
     if "port" in data:
         kwargs["port"] = int(data["port"])
+    if "ai_provider" in data:
+        kwargs["ai_provider"] = data["ai_provider"]
+    if "ai_base_url" in data:
+        kwargs["ai_base_url"] = data["ai_base_url"]
+    if "ai_model" in data:
+        kwargs["ai_model"] = data["ai_model"]
 
     # Environment variable overrides (INDEXARA_ prefix)
     env_map = {
@@ -65,6 +71,9 @@ def load_config(path: str | Path | None = None) -> Config:
         "INDEXARA_LOG_LEVEL": "log_level",
         "INDEXARA_HOST": "host",
         "INDEXARA_PORT": "port",
+        "INDEXARA_AI_PROVIDER": "ai_provider",
+        "INDEXARA_AI_BASE_URL": "ai_base_url",
+        "INDEXARA_AI_MODEL": "ai_model",
     }
     for env_key, field_name in env_map.items():
         val = os.environ.get(env_key)

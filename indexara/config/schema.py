@@ -20,3 +20,7 @@ class Config:
     index_paths: list[str] = field(default_factory=list)
     host: str = "0.0.0.0"
     port: int = 8000
+    # AI provider: "anthropic" (default) or "openai-compatible" (Ollama, LM Studio, etc.)
+    ai_provider: str = "anthropic"
+    ai_base_url: str | None = None   # e.g. http://localhost:11434/v1
+    ai_model: str | None = None      # e.g. llama3.2, mistral, qwen2.5

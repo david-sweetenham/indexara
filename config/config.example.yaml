@@ -28,8 +28,20 @@ exclude:
   - "*.log"
   - "**/tmp/**"
 
-# Anthropic API key (or set ANTHROPIC_API_KEY env var)
-# anthropic_api_key: sk-ant-...
+# --- AI provider ---
+# Option 1: Anthropic (default) — requires an API key
+# anthropic_api_key: sk-ant-...   # or set ANTHROPIC_API_KEY env var
+
+# Option 2: Local AI via Ollama (no API key needed)
+# Install Ollama: https://ollama.com  then: ollama pull llama3.2
+# ai_provider: openai-compatible
+# ai_base_url: http://localhost:11434/v1
+# ai_model: llama3.2
+
+# Option 3: LM Studio or any OpenAI-compatible server
+# ai_provider: openai-compatible
+# ai_base_url: http://localhost:1234/v1
+# ai_model: your-model-name
 
 # Steam Workshop API key (optional, for name resolution)
 # steam_api_key: ...
