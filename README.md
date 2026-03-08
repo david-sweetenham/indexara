@@ -25,7 +25,7 @@ Index files across multiple machines into a central SQLite catalogue. Search wit
 ### Install
 
 ```bash
-git clone <repo>
+git clone https://github.com/david-sweetenham/indexara.git
 cd indexara
 pip install -e .
 ```
@@ -123,6 +123,7 @@ docker compose --profile agent up
 | `/ask?q=...` | GET | AI question answering |
 | `/index` | POST | Receive index batch (from agents) |
 | `/devices` | GET | List indexed devices |
+| `/insights` | GET | Disk usage insights (largest files, duplicates, folders) |
 
 ## File Type Support
 
@@ -141,6 +142,7 @@ docker compose --profile agent up
 indexara index [ROOTS...] [--push] [--force] [--config PATH]
 indexara search QUERY [--limit N] [--server] [--config PATH]
 indexara ask QUESTION [--server] [--config PATH]
+indexara insights [--limit N] [--server] [--config PATH]
 indexara devices [--config PATH]
 indexara rebuild-search
 ```
