@@ -322,6 +322,40 @@ main {
   padding: 0 2px;
 }
 
+.result-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.result-action-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.result-action-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.insights-warning {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.insights-warning-note {
+  font-size: 12px;
+  color: #f59e0b;
+  margin: 0 0 10px;
+  opacity: 0.85;
+}
+
 .ask-answer {
   background: var(--bg-card);
   border: 1px solid var(--border);

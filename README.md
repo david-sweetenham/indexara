@@ -149,6 +149,7 @@ docker compose --profile agent up
 | `/scan/status` | GET | Poll scan progress (state, files_indexed, files_skipped) |
 | `/scan/stats` | GET | Catalogue summary (total files, size, breakdown by type) |
 | `/fs/browse?path=` | GET | List subdirectories for the file browser UI |
+| `/open?path=&action=` | GET | Open a file or folder in the desktop file manager |
 
 ## File Type Support
 

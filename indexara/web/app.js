@@ -240,6 +240,7 @@
       snippetPart = `<div class="result-snippet">${safe}</div>`;
     }
 
+    const pathEnc = encodeURIComponent(r.path);
     return `
       <div class="result-card">
         <div class="result-header">
@@ -256,6 +257,10 @@
           ${modified ? `<span>${modified}</span>` : ''}
         </div>
         ${snippetPart}
+        <div class="result-actions">
+          <button class="result-action-btn" onclick="openPath('${pathEnc}','file')" title="Open file">Open</button>
+          <button class="result-action-btn" onclick="openPath('${pathEnc}','folder')" title="Open containing folder">Open Folder</button>
+        </div>
       </div>`;
   }
 
@@ -348,12 +353,59 @@
         </tbody>
       </table>` : '<p class="insights-empty">No data</p>';
 
+    // Disk Growth (last 7 days)
+    const growth = data.disk_growth || {};
+    const growthDevices = growth.by_device || [];
+    const growthFiles = growth.top_new_files || [];
+    const growthBody = (growthDevices.length || growthFiles.length) ? `
+      ${growthDevices.length ? `
+      <table class="insights-table">
+        <thead><tr><th>Device</th><th>New Files</th><th>New Data</th></tr></thead>
+        <tbody>${growthDevices.map(r => `
+          <tr>
+            <td class="insights-td-name">${escHtml(r.device_name)}</td>
+            <td class="insights-td-count">${r.file_count}</td>
+            <td class="insights-td-size">${formatSize(r.total_size || 0)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : ''}
+      ${growthFiles.length ? `
+      <p style="margin:12px 0 4px;font-size:0.8rem;opacity:0.6">Largest new files</p>
+      <table class="insights-table">
+        <thead><tr><th>Size</th><th>Filename</th><th>Path</th></tr></thead>
+        <tbody>${growthFiles.map(r => `
+          <tr>
+            <td class="insights-td-size">${formatSize(r.size || 0)}</td>
+            <td class="insights-td-name">${escHtml(r.filename)}</td>
+            <td class="insights-td-path">${escHtml(r.path)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : ''}
+    ` : `<p class="insights-empty">No new files in the last 7 days</p>`;
+
+    // Cleanup Candidates
+    const cleanup = data.cleanup_candidates || [];
+    const cleanupBody = cleanup.length ? `
+      <p class="insights-warning-note">Large files (&gt;100 MB) with no extension or temp-like names</p>
+      <table class="insights-table">
+        <thead><tr><th>Size</th><th>Filename</th><th>Path</th></tr></thead>
+        <tbody>${cleanup.map(r => `
+          <tr>
+            <td class="insights-td-size">${formatSize(r.size || 0)}</td>
+            <td class="insights-td-name insights-warning">${escHtml(r.filename)}</td>
+            <td class="insights-td-path">${escHtml(r.path)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : '<p class="insights-empty">No suspicious files found</p>';
+
     results.innerHTML = `
       <div class="insights-stack">
         ${insightsSection('largest', 'Largest Files', '📦', lfBody)}
+        ${insightsSection('growth', 'Disk Growth (Last 7 Days)', '📈', growthBody)}
         ${insightsSection('recent', 'Recently Added', '🕐', rfBody)}
         ${insightsSection('dupes', 'Duplicate Files', '🗂', dupsBody)}
         ${insightsSection('folders', 'Largest Folders', '📁', foldersBody)}
+        ${insightsSection('cleanup', 'Cleanup Candidates', '⚠️', cleanupBody)}
       </div>`;
   }
 
@@ -584,6 +636,19 @@
 
     } catch (err) {
       list.innerHTML = `<div class="fb-error">${escHtml(err.message)}</div>`;
+    }
+  };
+
+  window.openPath = async function(encodedPath, action) {
+    const path = decodeURIComponent(encodedPath);
+    try {
+      const res = await fetch(`/open?path=${encodeURIComponent(path)}&action=${action}`);
+      if (!res.ok) {
+        const d = await res.json();
+        alert('Could not open: ' + (d.detail || res.status));
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
     }
   };
 

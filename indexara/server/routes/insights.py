@@ -10,6 +10,8 @@ from ...db.insights import (
     get_recent_files,
     get_duplicate_files,
     get_largest_folders,
+    get_disk_growth,
+    get_cleanup_candidates,
 )
 
 router = APIRouter()
@@ -35,8 +37,10 @@ async def get_insights(limit: int = 20):
 
 def _run_queries(cat_conn, limit: int) -> dict:
     return {
-        "largest_files":  get_largest_files(cat_conn, limit),
-        "recent_files":   get_recent_files(cat_conn, limit),
-        "duplicate_files": get_duplicate_files(cat_conn, limit),
-        "largest_folders": get_largest_folders(cat_conn, limit),
+        "largest_files":    get_largest_files(cat_conn, limit),
+        "recent_files":     get_recent_files(cat_conn, limit),
+        "duplicate_files":  get_duplicate_files(cat_conn, limit),
+        "largest_folders":  get_largest_folders(cat_conn, limit),
+        "disk_growth":      get_disk_growth(cat_conn, days=7, limit=limit),
+        "cleanup_candidates": get_cleanup_candidates(cat_conn, limit),
     }
