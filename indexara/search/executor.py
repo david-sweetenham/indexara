@@ -21,23 +21,25 @@ def execute_search(
     """Run a natural language search and return ranked results."""
     interpretation = interpret_query(query, config)
     logger.debug("Query interpretation: %s", interpretation)
-    return _execute_interpreted(interpretation, catalog_conn, search_conn)
+    return _execute_interpreted(interpretation, catalog_conn, search_conn, limit=limit)
 
 
 def execute_interpreted_search(
     interpretation: QueryInterpretation,
     catalog_conn: sqlite3.Connection,
     search_conn: sqlite3.Connection,
+    limit: int = 50,
 ) -> list[SearchResult]:
-    return _execute_interpreted(interpretation, catalog_conn, search_conn)
+    return _execute_interpreted(interpretation, catalog_conn, search_conn, limit=limit)
 
 
 def _execute_interpreted(
     interp: QueryInterpretation,
     catalog_conn: sqlite3.Connection,
     search_conn: sqlite3.Connection,
+    limit: int | None = None,
 ) -> list[SearchResult]:
-    limit = interp.limit
+    limit = limit if limit is not None else interp.limit
     fts_results: list[SearchResult] = []
     filter_results: list[SearchResult] = []
 
