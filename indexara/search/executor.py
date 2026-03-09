@@ -46,15 +46,11 @@ def _execute_interpreted(
     if interp.fts_query:
         fts_results = fts_search(search_conn, catalog_conn, interp.fts_query, limit * 2)
 
-    if interp.filters:
-        filter_records = query_with_filters(catalog_conn, interp.filters, limit * 2)
-        filter_ids = {r.id for r in filter_records}
-    else:
-        filter_ids = None
-
     if interp.fts_query and interp.filters:
-        # Intersect: keep FTS results that also pass the filters
-        results = [r for r in fts_results if r.file_id in filter_ids]
+        # Intersect: filter FTS results in-memory against interpreted filters.
+        # Do NOT use query_with_filters here — it is bounded by a row limit and
+        # would miss matches when the filter category (e.g. all audio) is large.
+        results = [r for r in fts_results if _matches_filters(r, interp.filters)]
     elif interp.fts_query:
         results = fts_results
     elif interp.filters:
@@ -77,6 +73,18 @@ def _execute_interpreted(
         return []
 
     return results[:limit]
+
+
+def _matches_filters(result: SearchResult, filters: dict) -> bool:
+    """Return True if a SearchResult passes all interpreted filter criteria."""
+    for key, value in filters.items():
+        if key == "type_group" and result.type_group != value:
+            return False
+        if key == "type_subgroup" and result.type_subgroup != value:
+            return False
+        if key == "device_name" and result.device_name != value:
+            return False
+    return True
 
 
 def execute_ask(

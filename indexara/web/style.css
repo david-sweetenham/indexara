@@ -983,3 +983,37 @@ main {
   flex-shrink: 0;
 }
 .fb-select-btn:hover { background: var(--accent-hover); }
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px 0 8px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.page-btn {
+  padding: 7px 16px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.page-btn:hover:not(:disabled) { background: var(--accent); color: white; border-color: var(--accent); }
+.page-btn:disabled { opacity: 0.35; cursor: default; }
+.page-info {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.pagination-top {
+  border-top: none;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 0 16px;
+  margin-top: 0;
+  margin-bottom: 4px;
+}

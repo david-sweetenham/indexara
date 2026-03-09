@@ -5,6 +5,8 @@
   let debounceTimer = null;
   let currentResults = [];
   let currentSort = 'relevance';
+  let currentPage = 1;
+  const PAGE_SIZE = 25;
 
   const form = document.getElementById('search-form');
   const input = document.getElementById('query-input');
@@ -18,6 +20,7 @@
   document.querySelectorAll('.sort-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       currentSort = btn.dataset.sort;
+      currentPage = 1;
       document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderSearchResults(currentResults, currentResults.length);
@@ -142,6 +145,7 @@
       const data = await res.json();
       currentResults = data.results || [];
       currentSort = 'relevance';
+      currentPage = 1;
       document.querySelectorAll('.sort-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.sort === 'relevance');
       });
@@ -212,8 +216,34 @@
         </div>`;
       return;
     }
-    results.innerHTML = sortedItems(items).map(renderResultCard).join('');
+    const sorted = sortedItems(items);
+    const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+    currentPage = Math.min(currentPage, totalPages);
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = sorted.slice(start, start + PAGE_SIZE);
+
+    const cards = pageItems.map(renderResultCard).join('');
+    const paginationTop = totalPages > 1 ? renderPagination(currentPage, totalPages, sorted.length, true) : '';
+    const paginationBot = totalPages > 1 ? renderPagination(currentPage, totalPages, sorted.length, false) : '';
+    results.innerHTML = paginationTop + cards + paginationBot;
   }
+
+  function renderPagination(page, totalPages, totalItems, isTop = false) {
+    const start = (page - 1) * PAGE_SIZE + 1;
+    const end = Math.min(page * PAGE_SIZE, totalItems);
+    return `
+      <div class="pagination${isTop ? ' pagination-top' : ''}">
+        <button class="page-btn" onclick="window._goPage(${page - 1})" ${page <= 1 ? 'disabled' : ''}>&#8592; Prev</button>
+        <span class="page-info">Page ${page} of ${totalPages} &nbsp;(${start}–${end} of ${totalItems})</span>
+        <button class="page-btn" onclick="window._goPage(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>Next &#8594;</button>
+      </div>`;
+  }
+
+  window._goPage = function(page) {
+    currentPage = page;
+    renderSearchResults(currentResults, currentResults.length);
+    document.getElementById('results-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   function renderResultCard(r) {
     const ext = (r.type_subgroup || r.extension || '').toUpperCase();

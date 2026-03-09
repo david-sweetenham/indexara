@@ -6,12 +6,15 @@ Index files across multiple machines into a central SQLite catalogue. Search wit
 
 ## Features
 
-- **Natural language search** — "FLAC albums by Radiohead", "documents about taxes"
+- **Natural language search** — "FLAC albums by Radiohead", "Portishead flac files", "documents about taxes"
 - **AI question answering** — "What documents mention broadband costs?"
-- **Web UI** — browser-based interface with search, ask, insights, and scan tabs
+- **Paginated results** — 25 results per page with Prev/Next controls at top and bottom
+- **Web UI** — browser-based interface with Search, Ask, Insights, Scan, and Audio tabs
 - **Quick filters** — one-click chips for Music, FLAC, MP3, Videos, Images, Documents, Large Files, Recent
 - **Sortable results** — sort by relevance, name, size, date, or type
-- **Insights dashboard** — disk usage breakdown with collapsible sections (largest files, duplicates, top folders)
+- **Open files** — Open or Open Folder buttons on every result card
+- **Insights dashboard** — largest files, duplicates, top folders, disk growth, and cleanup candidates
+- **Audio tab** — metadata health report (missing tags, generic titles), duplicate track detection, inconsistent artist names, inline tag editor
 - **Web-triggered scans** — kick off indexing runs from the browser with live progress
 - **File system browser** — browse your directory tree visually instead of typing paths
 - **Multi-machine support** — index from any number of devices
@@ -76,10 +79,11 @@ indexara serve
 ```
 
 The web UI provides:
-- **Search** — natural language search with quick filter chips and sortable results
+- **Search** — natural language search with quick filter chips, sortable results, and pagination
 - **Ask** — AI-powered question answering over your file catalogue
-- **Insights** — disk usage analysis with collapsible breakdowns
+- **Insights** — disk usage analysis: largest files, duplicates, folder sizes, disk growth, cleanup candidates
 - **Scan** — browse your filesystem and kick off indexing runs with live progress
+- **Audio** — metadata health dashboard and inline tag editor
 
 ## Single-machine mode (local)
 
@@ -150,6 +154,9 @@ docker compose --profile agent up
 | `/scan/stats` | GET | Catalogue summary (total files, size, breakdown by type) |
 | `/fs/browse?path=` | GET | List subdirectories for the file browser UI |
 | `/open?path=&action=` | GET | Open a file or folder in the desktop file manager |
+| `/audio/health` | GET | Audio metadata health report (missing tags, generic titles) |
+| `/audio/cleanup` | GET | Duplicate tracks and inconsistent artist name variants |
+| `/audio/update_tags` | POST | Write audio tags (artist, album, title, year, track number) |
 
 ## File Type Support
 
@@ -172,6 +179,9 @@ indexara ask QUESTION [--server] [--config PATH]
 indexara insights [--limit N] [--server] [--config PATH]
 indexara devices [--config PATH]
 indexara rebuild-search
+indexara audio health [--limit N] [--config PATH]
+indexara audio duplicates [--limit N] [--config PATH]
+indexara audio artists [--limit N] [--config PATH]
 ```
 
 ## .indexignore

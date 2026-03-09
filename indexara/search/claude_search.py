@@ -35,32 +35,27 @@ The catalogue contains files with these fields:
 - audio metadata: artist, album, title (for audio files)
 - document_text: extracted text content (for documents)
 
-Respond ONLY with valid JSON (no markdown, no explanation) in this format:
-{
-  "fts_query": "search terms for full-text search, or null if not needed",
-  "filters": {
-    "type_group": "audio",
-    "type_subgroup": "flac"
-  },
-  "limit": 50,
-  "reasoning": "brief explanation"
-}
+Respond ONLY with valid JSON (no markdown, no explanation) in this exact format:
+{"fts_query": null, "filters": {}, "limit": 50, "reasoning": "explanation"}
 
-Rules:
-- Use fts_query for text/name searches, artist/album names, document content searches
-- Use filters for structured constraints (file type, format, device)
-- filters keys must be one of: type_group, type_subgroup, device_name, extension
-- For audio searches, set type_group="audio"
-- For format-specific searches (e.g. "FLAC files"), set type_subgroup
-- limit should be between 10 and 200, default 50
-- If the query is purely structural (e.g. "all PDF files"), fts_query can be null
-- Both fts_query and filters can be set simultaneously for best results
+CRITICAL RULES:
+1. fts_query = any NAME (artist, album, person, topic, keyword). NEVER omit a name. NEVER put a name only in filters.
+2. filters = only structured constraints: type_group, type_subgroup, device_name
+3. Words like "files", "music", "songs", "albums", "all", "my", "find", "show" are STOP WORDS — never put them in fts_query
+4. Format words like "flac", "mp3", "pdf", "video" → put in filters.type_subgroup or filters.type_group, NOT in fts_query
+5. If the query is ONLY about a type/format with no name, fts_query must be null
+6. limit: between 10 and 200, default 50
 
-Examples:
-- "radiohead flac albums" → fts_query="radiohead", filters={"type_group":"audio","type_subgroup":"flac"}
-- "documents about taxes" → fts_query="taxes", filters={"type_group":"document"}
-- "all my videos" → fts_query=null, filters={"type_group":"video"}
-- "python files" → fts_query=null, filters={"type_group":"code","type_subgroup":"python"}
+EXAMPLES (follow these exactly):
+- "radiohead flac albums" → {"fts_query":"radiohead","filters":{"type_group":"audio","type_subgroup":"flac"},"limit":50,"reasoning":"artist name in fts, format in filter"}
+- "Portishead flac files" → {"fts_query":"Portishead","filters":{"type_group":"audio","type_subgroup":"flac"},"limit":50,"reasoning":"artist name in fts, format in filter"}
+- "documents about taxes" → {"fts_query":"taxes","filters":{"type_group":"document"},"limit":50,"reasoning":"topic in fts, type in filter"}
+- "all music files" → {"fts_query":null,"filters":{"type_group":"audio"},"limit":200,"reasoning":"no name, just type filter"}
+- "all my videos" → {"fts_query":null,"filters":{"type_group":"video"},"limit":200,"reasoning":"no name, just type filter"}
+- "FLAC files" → {"fts_query":null,"filters":{"type_group":"audio","type_subgroup":"flac"},"limit":200,"reasoning":"format filter only"}
+- "python files" → {"fts_query":null,"filters":{"type_group":"code","type_subgroup":"python"},"limit":50,"reasoning":"format filter only"}
+- "albums by Portishead" → {"fts_query":"Portishead","filters":{"type_group":"audio"},"limit":50,"reasoning":"artist name in fts"}
+- "Pink Floyd mp3" → {"fts_query":"Pink Floyd","filters":{"type_group":"audio","type_subgroup":"mp3"},"limit":50,"reasoning":"artist in fts, format in filter"}
 """
 
 ASK_SYSTEM_PROMPT = """You are a helpful assistant answering questions about a user's files.
@@ -141,16 +136,53 @@ def interpret_query(query: str, config) -> QueryInterpretation:
     try:
         text = _call_llm(SYSTEM_PROMPT, query, config, max_tokens=512)
         data = _parse_json_response(text)
-        return QueryInterpretation(
+        interp = QueryInterpretation(
             fts_query=data.get("fts_query"),
             filters=data.get("filters", {}),
             limit=min(max(data.get("limit", 50), 1), 200),
             reasoning=data.get("reasoning"),
         )
+        # Safety net: if the AI dropped a name from fts_query, recover it
+        interp = _recover_fts_query(query, interp)
+        return interp
     except Exception as e:
         logger.warning("AI query interpretation failed: %s", e)
         # Fallback: treat entire query as an FTS string with no filters
         return QueryInterpretation(fts_query=query, filters={}, limit=50)
+
+
+# Words that describe file types/categories — should never be the fts_query on their own
+_STOP_WORDS = {
+    'file', 'files', 'all', 'my', 'the', 'a', 'an', 'by', 'in', 'from', 'for',
+    'find', 'show', 'get', 'list', 'search', 'give', 'me',
+    'music', 'audio', 'songs', 'song', 'track', 'tracks', 'album', 'albums', 'artist', 'band',
+    'video', 'videos', 'movie', 'movies', 'film', 'films',
+    'image', 'images', 'photo', 'photos', 'picture', 'pictures',
+    'document', 'documents', 'doc', 'docs',
+    'large', 'small', 'big', 'recent', 'new', 'old', 'latest',
+    'flac', 'mp3', 'wav', 'ogg', 'aac', 'm4a', 'alac', 'opus',
+    'mkv', 'mp4', 'avi', 'mov', 'wmv', 'webm',
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff',
+    'pdf', 'docx', 'doc', 'xlsx', 'txt', 'epub',
+    'zip', 'tar', 'rar', '7z',
+}
+
+
+def _recover_fts_query(original_query: str, interp: QueryInterpretation) -> QueryInterpretation:
+    """If fts_query is missing, try to recover name/keyword terms from the original query."""
+    if interp.fts_query:
+        return interp  # AI already set it — trust it
+    words = [w for w in original_query.lower().split() if w not in _STOP_WORDS]
+    if not words:
+        return interp  # Truly a type-only query — correct to have no fts_query
+    recovered = ' '.join(words)
+    logger.debug("Recovered fts_query %r from %r", recovered, original_query)
+    return QueryInterpretation(
+        fts_query=recovered,
+        filters=interp.filters,
+        limit=interp.limit,
+        reasoning=interp.reasoning,
+    )
 
 
 def synthesize_answer(
