@@ -128,14 +128,13 @@ def run_indexer(
         _flush_batch(pending_records, config, catalog_conn, search_conn)
         pending_records.clear()
 
-    # Mark missing files as deleted
+    # Mark missing files as deleted, scoped to scanned roots only
     if catalog_conn:
-        for root in roots:
-            deleted = mark_missing_deleted(
-                catalog_conn, config.device_name, seen_ids
-            )
-            stats.files_deleted += deleted
-            break  # mark_missing_deleted works per-device, not per-root
+        deleted = mark_missing_deleted(
+            catalog_conn, config.device_name, seen_ids,
+            roots=[str(r.resolve()) for r in roots],
+        )
+        stats.files_deleted += deleted
 
     stats.duration_seconds = time.time() - start
 

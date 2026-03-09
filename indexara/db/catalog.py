@@ -58,15 +58,25 @@ def mark_deleted(conn: sqlite3.Connection, file_id: str) -> None:
 
 
 def mark_missing_deleted(
-    conn: sqlite3.Connection, device_name: str, seen_ids: set[str]
+    conn: sqlite3.Connection, device_name: str, seen_ids: set[str],
+    roots: list | None = None,
 ) -> int:
-    """Mark files for a device as deleted if not in seen_ids. Returns count."""
-    existing = {
-        row[0]
-        for row in conn.execute(
-            "SELECT id FROM files WHERE device_name=? AND deleted=0", (device_name,)
-        )
-    }
+    """Mark files as deleted if not in seen_ids, scoped to the given roots."""
+    if roots:
+        existing = set()
+        for root in roots:
+            rows = conn.execute(
+                "SELECT id FROM files WHERE device_name=? AND deleted=0 AND path LIKE ?",
+                (device_name, f"{root}%"),
+            )
+            existing.update(row[0] for row in rows)
+    else:
+        existing = {
+            row[0]
+            for row in conn.execute(
+                "SELECT id FROM files WHERE device_name=? AND deleted=0", (device_name,)
+            )
+        }
     to_delete = existing - seen_ids
     if to_delete:
         placeholders = ",".join("?" * len(to_delete))
@@ -80,7 +90,7 @@ def mark_missing_deleted(
 
 def get_file(conn: sqlite3.Connection, file_id: str) -> FileRecord | None:
     row = conn.execute(
-        "SELECT * FROM files WHERE id=?", (file_id,)
+        "SELECT * FROM files WHERE id=? AND deleted=0", (file_id,)
     ).fetchone()
     if not row:
         return None
