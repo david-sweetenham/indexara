@@ -245,6 +245,16 @@
     document.getElementById('results-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  // Reusable open buttons for any file or folder path
+  function actionBtns(path, isFolder = false) {
+    const enc = encodeURIComponent(path);
+    const open = isFolder
+      ? `<button class="result-action-btn" onclick="openPath('${enc}','folder')" title="Open folder">Open</button>`
+      : `<button class="result-action-btn" onclick="openPath('${enc}','file')" title="Open file">Open</button>
+         <button class="result-action-btn" onclick="openPath('${enc}','folder')" title="Open containing folder">Folder</button>`;
+    return `<div class="result-actions" style="margin:0">${open}</div>`;
+  }
+
   function renderResultCard(r) {
     const ext = (r.type_subgroup || r.extension || '').toUpperCase();
     const group = r.type_group || 'other';
@@ -338,12 +348,13 @@
     const lf = data.largest_files || [];
     const lfBody = lf.length ? `
       <table class="insights-table">
-        <thead><tr><th>Size</th><th>Filename</th><th>Path</th></tr></thead>
+        <thead><tr><th>Size</th><th>Filename</th><th>Path</th><th></th></tr></thead>
         <tbody>${lf.map(r => `
           <tr>
             <td class="insights-td-size">${formatSize(r.size || 0)}</td>
             <td class="insights-td-name">${escHtml(r.filename)}</td>
             <td class="insights-td-path">${escHtml(r.path)}</td>
+            <td class="insights-td-actions">${actionBtns(r.path)}</td>
           </tr>`).join('')}
         </tbody>
       </table>` : '<p class="insights-empty">No data</p>';
@@ -352,12 +363,13 @@
     const rf = data.recent_files || [];
     const rfBody = rf.length ? `
       <table class="insights-table">
-        <thead><tr><th>Date</th><th>Filename</th><th>Path</th></tr></thead>
+        <thead><tr><th>Date</th><th>Filename</th><th>Path</th><th></th></tr></thead>
         <tbody>${rf.map(r => `
           <tr>
             <td class="insights-td-size">${r.created_at ? formatDate(r.created_at) : ''}</td>
             <td class="insights-td-name">${escHtml(r.filename)}</td>
             <td class="insights-td-path">${escHtml(r.path)}</td>
+            <td class="insights-td-actions">${actionBtns(r.path)}</td>
           </tr>`).join('')}
         </tbody>
       </table>` : '<p class="insights-empty">No data</p>';
@@ -372,7 +384,7 @@
           <span class="insights-dup-wasted">${formatSize(d.wasted_bytes || 0)} wasted</span>
         </div>
         ${(d.files || []).map(f => `
-          <div class="insights-dup-file">${escHtml(f.path)}</div>`).join('')}
+          <div class="insights-dup-file">${escHtml(f.path)} ${actionBtns(f.path)}</div>`).join('')}
       </div>`).join('') : '<p class="insights-empty">No duplicates found</p>';
 
     // Largest Folders
@@ -385,6 +397,7 @@
             <td class="insights-td-size">${formatSize(r.total_size || 0)}</td>
             <td class="insights-td-count">${r.file_count}</td>
             <td class="insights-td-path">${escHtml(r.folder)}</td>
+            <td class="insights-td-actions">${actionBtns(r.folder, true)}</td>
           </tr>`).join('')}
         </tbody>
       </table>` : '<p class="insights-empty">No data</p>';
@@ -414,6 +427,7 @@
             <td class="insights-td-size">${formatSize(r.size || 0)}</td>
             <td class="insights-td-name">${escHtml(r.filename)}</td>
             <td class="insights-td-path">${escHtml(r.path)}</td>
+            <td class="insights-td-actions">${actionBtns(r.path)}</td>
           </tr>`).join('')}
         </tbody>
       </table>` : ''}
@@ -430,6 +444,7 @@
             <td class="insights-td-size">${formatSize(r.size || 0)}</td>
             <td class="insights-td-name insights-warning">${escHtml(r.filename)}</td>
             <td class="insights-td-path">${escHtml(r.path)}</td>
+            <td class="insights-td-actions">${actionBtns(r.path)}</td>
           </tr>`).join('')}
         </tbody>
       </table>` : '<p class="insights-empty">No suspicious files found</p>';
@@ -723,7 +738,7 @@
           <span class="insights-dup-copies">${d.copies} copies</span>
           <span class="insights-dup-hash">${escHtml(d.content_hash.slice(0,16))}…</span>
         </div>
-        ${(d.paths || []).map(p => `<div class="insights-dup-file">${escHtml(p.path)}</div>`).join('')}
+        ${(d.paths || []).map(p => `<div class="insights-dup-file">${escHtml(p.path)} ${actionBtns(p.path)}</div>`).join('')}
       </div>`).join('') : '<p class="insights-empty">No duplicates found</p>';
 
     // Inconsistent artists
@@ -753,12 +768,15 @@
     if (!files.length) return '<p class="insights-empty">None found</p>';
     return `
       <table class="insights-table">
-        <thead><tr><th>Filename</th><th>Path</th>${showEditBtn ? '<th></th>' : ''}</tr></thead>
+        <thead><tr><th>Filename</th><th>Path</th><th></th></tr></thead>
         <tbody>${files.map(r => `
           <tr>
             <td class="insights-td-name">${escHtml(r.filename)}</td>
             <td class="insights-td-path">${escHtml(r.path)}</td>
-            ${showEditBtn ? `<td><button class="result-action-btn" onclick="window._teOpen(${JSON.stringify(r.path)})">Edit Tags</button></td>` : ''}
+            <td class="insights-td-actions">
+              ${actionBtns(r.path)}
+              ${showEditBtn ? `<button class="result-action-btn" onclick='window._teOpen(${JSON.stringify(r.path)})'>Edit Tags</button>` : ''}
+            </td>
           </tr>`).join('')}
         </tbody>
       </table>`;
