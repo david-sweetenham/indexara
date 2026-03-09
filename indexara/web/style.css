@@ -572,7 +572,9 @@ main {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
-  max-width: 400px;
+  width: 1%;           /* shrink to content but let overflow rules handle the rest */
+  max-width: 300px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1018,5 +1020,64 @@ main {
   margin-bottom: 4px;
 }
 
-.insights-td-actions { white-space: nowrap; padding: 4px 8px; }
+.insights-td-actions {
+  white-space: nowrap;
+  padding: 4px 8px;
+  width: 130px;       /* fixed width so buttons always fit */
+  min-width: 130px;
+}
+.insights-td-actions .result-actions { margin-top: 0; }
 .insights-dup-file { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ── Mobile / responsive ────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Header — stack title above tabs on very small screens */
+  .header-inner {
+    flex-direction: column;
+    height: auto;
+    padding: 10px 0;
+    gap: 8px;
+  }
+
+  /* Shrink mode buttons */
+  .mode-btn { padding: 5px 10px; font-size: 12px; }
+
+  /* Main padding */
+  main { padding: 1rem; }
+
+  /* Search form — full width, stack vertically */
+  #search-form { flex-direction: column; }
+  #submit-btn { width: 100%; }
+
+  /* Result card — tighten up */
+  .result-card { padding: 10px 12px; }
+  .result-header { flex-direction: column; gap: 6px; }
+  .badges { flex-wrap: wrap; }
+
+  /* Result actions — wrap naturally */
+  .result-actions { flex-wrap: wrap; }
+
+  /* Sort bar — allow wrap */
+  #sort-bar { gap: 4px; }
+  .sort-btn { padding: 3px 7px; font-size: 11px; }
+
+  /* Insights tables — allow horizontal scroll on tiny screens */
+  .insights-section-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .insights-table { min-width: 480px; }
+
+  /* Insights path column — narrower on mobile */
+  .insights-td-path { max-width: 160px; }
+
+  /* Scan stats grid — 2 columns instead of 3+ */
+  .scan-stats-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Audio stat cards */
+  .scan-stat-card { padding: 10px; }
+
+  /* Pagination */
+  .page-info { font-size: 11px; }
+  .page-btn { padding: 6px 10px; font-size: 12px; }
+
+  /* File browser modal */
+  .fb-modal { width: 96vw; max-height: 90vh; }
+}
