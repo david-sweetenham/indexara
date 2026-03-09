@@ -15,6 +15,7 @@
         <button id="btn-ask" class="mode-btn" data-mode="ask">Ask</button>
         <button id="btn-insights" class="mode-btn" data-mode="insights">Insights</button>
         <button id="btn-scan" class="mode-btn" data-mode="scan">Scan</button>
+        <button id="btn-audio" class="mode-btn" data-mode="audio">Audio</button>
       </div>
     </div>
   </header>
@@ -71,6 +72,33 @@
       <div class="fb-footer">
         <span id="fb-current-path" class="fb-current-path"></span>
         <button id="fb-select-btn" class="fb-select-btn" onclick="window._fbSelect()">Select This Folder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tag editor modal -->
+  <div id="te-overlay" class="fb-overlay" style="display:none" onclick="if(event.target===this)window._teClose()">
+    <div class="fb-modal" style="max-width:480px">
+      <div class="fb-header">
+        <span class="fb-title">Edit Audio Tags</span>
+        <button class="fb-close-btn" onclick="window._teClose()">✕</button>
+      </div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+        <input type="hidden" id="te-path">
+        <label class="te-label">Artist
+          <input id="te-artist" class="te-input" type="text" placeholder="Artist name">
+        </label>
+        <label class="te-label">Album
+          <input id="te-album" class="te-input" type="text" placeholder="Album name">
+        </label>
+        <label class="te-label">Title
+          <input id="te-title" class="te-input" type="text" placeholder="Track title">
+        </label>
+        <label class="te-label">Year
+          <input id="te-year" class="te-input" type="number" placeholder="Year">
+        </label>
+        <div id="te-status" style="font-size:12px;min-height:16px"></div>
+        <button id="te-save-btn" class="fb-select-btn" onclick="window._teSave()">Save Tags</button>
       </div>
     </div>
   </div>

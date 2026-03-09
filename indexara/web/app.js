@@ -45,6 +45,12 @@
         results.innerHTML = '';
         statusBar.textContent = '';
         doScanPanel();
+      } else if (currentMode === 'audio') {
+        searchContainer.style.display = 'none';
+        sortBar.style.display = 'none';
+        results.innerHTML = '';
+        statusBar.textContent = '';
+        doAudioPanel();
       } else {
         stopScanPoll();
         searchContainer.style.display = '';
@@ -636,6 +642,151 @@
 
     } catch (err) {
       list.innerHTML = `<div class="fb-error">${escHtml(err.message)}</div>`;
+    }
+  };
+
+  // ── Audio panel ─────────────────────────────────────────────────────────────
+
+  async function doAudioPanel() {
+    results.innerHTML = '<div class="loading">Loading audio insights…</div>';
+    try {
+      const [healthRes, cleanupRes] = await Promise.all([
+        fetch('/audio/health?limit=100'),
+        fetch('/audio/cleanup?limit=50'),
+      ]);
+      if (!healthRes.ok || !cleanupRes.ok) throw new Error('Failed to load audio data');
+      const health = await healthRes.json();
+      const cleanup = await cleanupRes.json();
+      renderAudioPanel(health, cleanup);
+    } catch (err) {
+      renderError(err.message);
+    }
+  }
+
+  function renderAudioPanel(health, cleanup) {
+    const s = health.summary || {};
+    const dupes = cleanup.duplicate_tracks || [];
+    const artists = cleanup.inconsistent_artists || [];
+
+    // Summary cards
+    const statsHtml = `
+      <div class="scan-stats-grid" style="margin-bottom:20px">
+        <div class="scan-stat-card"><div class="scan-stat-val">${s.total_audio || 0}</div><div class="scan-stat-label">Total Audio Files</div></div>
+        <div class="scan-stat-card"><div class="scan-stat-val">${s.missing_artist || 0}</div><div class="scan-stat-label">Missing Artist</div></div>
+        <div class="scan-stat-card"><div class="scan-stat-val">${s.missing_album || 0}</div><div class="scan-stat-label">Missing Album</div></div>
+        <div class="scan-stat-card"><div class="scan-stat-val">${s.missing_title || 0}</div><div class="scan-stat-label">Missing Title</div></div>
+        <div class="scan-stat-card"><div class="scan-stat-val">${(health.generic_titles || []).length}</div><div class="scan-stat-label">Generic Titles</div></div>
+        <div class="scan-stat-card"><div class="scan-stat-val">${dupes.length}</div><div class="scan-stat-label">Duplicate Groups</div></div>
+      </div>`;
+
+    // Missing artist files
+    const maBody = renderAudioFileTable(health.missing_artist || [], true);
+    // Missing album
+    const malBody = renderAudioFileTable(health.missing_album || [], true);
+    // Generic titles
+    const gtBody = renderAudioFileTable(health.generic_titles || [], true);
+    // Duplicates
+    const dupBody = dupes.length ? dupes.map(d => `
+      <div class="insights-dup-group">
+        <div class="insights-dup-header">
+          <span class="insights-dup-copies">${d.copies} copies</span>
+          <span class="insights-dup-hash">${escHtml(d.content_hash.slice(0,16))}…</span>
+        </div>
+        ${(d.paths || []).map(p => `<div class="insights-dup-file">${escHtml(p.path)}</div>`).join('')}
+      </div>`).join('') : '<p class="insights-empty">No duplicates found</p>';
+
+    // Inconsistent artists
+    const artistBody = artists.length ? `
+      <table class="insights-table">
+        <thead><tr><th>Variants</th><th>Artist Names Found</th></tr></thead>
+        <tbody>${artists.map(a => `
+          <tr>
+            <td class="insights-td-count">${a.variants}</td>
+            <td class="insights-td-name">${escHtml(a.artist_list || '')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : '<p class="insights-empty">No inconsistencies found</p>';
+
+    results.innerHTML = `
+      <div class="insights-stack">
+        ${statsHtml}
+        ${insightsSection('au-missing-artist', 'Missing Artist', '🎤', maBody)}
+        ${insightsSection('au-missing-album', 'Missing Album', '💿', malBody)}
+        ${insightsSection('au-generic-titles', 'Generic Titles', '🏷️', gtBody)}
+        ${insightsSection('au-dupes', 'Duplicate Tracks', '♊', dupBody)}
+        ${insightsSection('au-artists', 'Inconsistent Artist Names', '⚠️', artistBody)}
+      </div>`;
+  }
+
+  function renderAudioFileTable(files, showEditBtn) {
+    if (!files.length) return '<p class="insights-empty">None found</p>';
+    return `
+      <table class="insights-table">
+        <thead><tr><th>Filename</th><th>Path</th>${showEditBtn ? '<th></th>' : ''}</tr></thead>
+        <tbody>${files.map(r => `
+          <tr>
+            <td class="insights-td-name">${escHtml(r.filename)}</td>
+            <td class="insights-td-path">${escHtml(r.path)}</td>
+            ${showEditBtn ? `<td><button class="result-action-btn" onclick="window._teOpen(${JSON.stringify(r.path)})">Edit Tags</button></td>` : ''}
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  // ── Tag editor modal ─────────────────────────────────────────────────────────
+
+  window._teOpen = function(path) {
+    document.getElementById('te-path').value = path;
+    document.getElementById('te-artist').value = '';
+    document.getElementById('te-album').value = '';
+    document.getElementById('te-title').value = '';
+    document.getElementById('te-year').value = '';
+    document.getElementById('te-status').textContent = path;
+    document.getElementById('te-save-btn').disabled = false;
+    document.getElementById('te-overlay').style.display = 'flex';
+  };
+
+  window._teClose = function() {
+    document.getElementById('te-overlay').style.display = 'none';
+  };
+
+  window._teSave = async function() {
+    const path = document.getElementById('te-path').value;
+    const artist = document.getElementById('te-artist').value.trim();
+    const album = document.getElementById('te-album').value.trim();
+    const title = document.getElementById('te-title').value.trim();
+    const year = document.getElementById('te-year').value.trim();
+    const status = document.getElementById('te-status');
+    const btn = document.getElementById('te-save-btn');
+
+    const body = { path };
+    if (artist) body.artist = artist;
+    if (album) body.album = album;
+    if (title) body.title = title;
+    if (year) body.year = parseInt(year);
+
+    btn.disabled = true;
+    status.textContent = 'Saving…';
+    try {
+      const res = await fetch('/audio/update_tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        status.style.color = '#ef4444';
+        status.textContent = 'Error: ' + (d.detail || res.status);
+        btn.disabled = false;
+      } else {
+        status.style.color = '#22c55e';
+        status.textContent = 'Tags saved successfully';
+        setTimeout(() => window._teClose(), 1200);
+      }
+    } catch (err) {
+      status.style.color = '#ef4444';
+      status.textContent = 'Error: ' + err.message;
+      btn.disabled = false;
     }
   };
 

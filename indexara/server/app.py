@@ -61,6 +61,7 @@ def create_app(config: Config) -> FastAPI:
     from .routes.insights import router as insights_router
     from .routes.scan import router as scan_router
     from .routes.open import router as open_router
+    from .routes.audio import router as audio_router
 
     app.include_router(index_router)
     app.include_router(search_router)
@@ -68,6 +69,7 @@ def create_app(config: Config) -> FastAPI:
     app.include_router(insights_router)
     app.include_router(scan_router)
     app.include_router(open_router)
+    app.include_router(audio_router)
 
     # Serve web UI
     web_dir = Path(__file__).parent.parent / "web"

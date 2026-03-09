@@ -130,6 +130,53 @@ def render_insights(data: dict) -> None:
     console.print()
 
 
+def render_audio_health(data: dict) -> None:
+    from rich.table import Table
+    summary = data.get("summary", {})
+    total = summary.get("total_audio", 0)
+
+    console.print(f"\n[bold]Audio Metadata Health[/bold]  [dim]({total} audio files)[/dim]\n")
+    console.print(f"  Missing artist : [yellow]{summary.get('missing_artist', 0)}[/yellow]")
+    console.print(f"  Missing album  : [yellow]{summary.get('missing_album', 0)}[/yellow]")
+    console.print(f"  Missing title  : [yellow]{summary.get('missing_title', 0)}[/yellow]")
+    generic = len(data.get("generic_titles", []))
+    console.print(f"  Generic titles : [yellow]{generic}[/yellow]")
+    console.print()
+
+    if data.get("generic_titles"):
+        t = Table("Filename", "Path", title="Generic Titles (sample)", show_header=True)
+        for r in data["generic_titles"][:20]:
+            t.add_row(r.get("filename", ""), r.get("path", ""))
+        console.print(t)
+        console.print()
+
+
+def render_audio_duplicates(duplicates: list) -> None:
+    from rich.table import Table
+    console.print(f"\n[bold]Duplicate Audio Tracks[/bold]  [dim]({len(duplicates)} groups)[/dim]\n")
+    if not duplicates:
+        console.print("  [dim]No duplicates found[/dim]")
+        return
+    for d in duplicates:
+        console.print(f"  [yellow]{d['copies']} copies[/yellow]  [dim]{d['content_hash'][:16]}…[/dim]")
+        for p in d.get("paths", []):
+            console.print(f"    {p['path']}")
+        console.print()
+
+
+def render_audio_artists(artists: list) -> None:
+    from rich.table import Table
+    console.print(f"\n[bold]Inconsistent Artist Names[/bold]  [dim]({len(artists)} cases)[/dim]\n")
+    if not artists:
+        console.print("  [dim]No inconsistencies found[/dim]")
+        return
+    t = Table("Variants", "Artist Names", show_header=True)
+    for a in artists:
+        t.add_row(str(a.get("variants", "")), a.get("artist_list", ""))
+    console.print(t)
+    console.print()
+
+
 def _format_size(bytes: int) -> str:
     if bytes < 1024:
         return f"{bytes}B"

@@ -288,5 +288,57 @@ def serve(
     uvicorn.run(app_instance, host=cfg.host, port=cfg.port, log_level=cfg.log_level.lower())
 
 
+audio_app = typer.Typer(name="audio", help="Audio metadata tools", no_args_is_help=True)
+app.add_typer(audio_app)
+
+
+@audio_app.command("health")
+def audio_health(
+    config: Optional[str] = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Show audio metadata health report (missing tags, generic titles)."""
+    from ..db.connection import get_catalog_conn
+    from ..db.audio import get_audio_health
+    from .output import render_audio_health
+
+    cfg = _get_config(config)
+    conn = get_catalog_conn(cfg.catalog_db_path)
+    data = get_audio_health(conn, limit=100)
+    conn.close()
+    render_audio_health(data)
+
+
+@audio_app.command("duplicates")
+def audio_duplicates(
+    config: Optional[str] = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Show duplicate audio tracks (by content hash)."""
+    from ..db.connection import get_catalog_conn
+    from ..db.audio import get_audio_cleanup
+    from .output import render_audio_duplicates
+
+    cfg = _get_config(config)
+    conn = get_catalog_conn(cfg.catalog_db_path)
+    data = get_audio_cleanup(conn, limit=50)
+    conn.close()
+    render_audio_duplicates(data["duplicate_tracks"])
+
+
+@audio_app.command("artists")
+def audio_artists(
+    config: Optional[str] = typer.Option(None, "--config", "-c", help="Config file path"),
+):
+    """Show artist names with inconsistent capitalisation."""
+    from ..db.connection import get_catalog_conn
+    from ..db.audio import get_audio_cleanup
+    from .output import render_audio_artists
+
+    cfg = _get_config(config)
+    conn = get_catalog_conn(cfg.catalog_db_path)
+    data = get_audio_cleanup(conn, limit=50)
+    conn.close()
+    render_audio_artists(data["inconsistent_artists"])
+
+
 if __name__ == "__main__":
     app()

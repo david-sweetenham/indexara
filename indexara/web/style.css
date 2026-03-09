@@ -356,6 +356,29 @@ main {
   opacity: 0.85;
 }
 
+.te-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.te-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.te-input:focus {
+  border-color: var(--accent);
+}
+
 .ask-answer {
   background: var(--bg-card);
   border: 1px solid var(--border);
