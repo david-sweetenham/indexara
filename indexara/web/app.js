@@ -499,7 +499,8 @@
         </div>`;
     } else if (isDone) {
       const elapsed = status.finished_at && status.started_at ? ((status.finished_at - status.started_at)).toFixed(0) : '';
-      progressHtml = `<div class="scan-done">✓ Scan complete — ${(status.files_indexed || 0).toLocaleString()} indexed, ${(status.files_skipped || 0).toLocaleString()} skipped${elapsed ? ` in ${elapsed}s` : ''}</div>`;
+      const errPart = status.files_errored ? `, ${status.files_errored} errors` : '';
+      progressHtml = `<div class="scan-done">✓ Scan complete — ${(status.files_indexed || 0).toLocaleString()} indexed, ${(status.files_skipped || 0).toLocaleString()} skipped${errPart}${elapsed ? ` in ${elapsed}s` : ''}</div>`;
     } else if (isError) {
       progressHtml = `<div class="scan-error">✗ Scan failed: ${escHtml(status.error || 'unknown error')}</div>`;
     }

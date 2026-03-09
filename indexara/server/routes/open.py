@@ -3,7 +3,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from .auth import require_api_key
 
 router = APIRouter()
 
@@ -12,6 +14,7 @@ router = APIRouter()
 async def open_path(
     path: str = Query(..., description="Absolute path to open"),
     action: str = Query("file", description="'file' to open the file, 'folder' to open its parent"),
+    _: None = Depends(require_api_key),
 ):
     """Fire xdg-open for the given path. Non-blocking — returns immediately."""
     p = Path(path)

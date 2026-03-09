@@ -4,8 +4,10 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from .auth import require_api_key
 
 router = APIRouter(prefix="/audio")
 _executor = ThreadPoolExecutor(max_workers=2)
@@ -42,7 +44,7 @@ async def audio_cleanup(limit: int = 50):
 
 
 @router.post("/update_tags")
-async def update_tags(update: TagUpdate):
+async def update_tags(update: TagUpdate, _: None = Depends(require_api_key)):
     """Write audio tags to a file and refresh the catalogue entry."""
     if not Path(update.path).exists():
         raise HTTPException(status_code=404, detail=f"File not found: {update.path}")
@@ -109,11 +111,24 @@ def _do_update_tags(update: TagUpdate, cat_conn, srch_conn) -> None:
         fields["year"] = update.year
 
     if fields:
-        set_clause = ", ".join(f"{k} = ?" for k in fields)
-        cat_conn.execute(
-            f"UPDATE audio_metadata SET {set_clause} WHERE file_id = ?",
-            list(fields.values()) + [file_id],
-        )
+        existing = cat_conn.execute(
+            "SELECT file_id FROM audio_metadata WHERE file_id = ?", (file_id,)
+        ).fetchone()
+        if existing:
+            set_clause = ", ".join(f"{k} = ?" for k in fields)
+            cat_conn.execute(
+                f"UPDATE audio_metadata SET {set_clause} WHERE file_id = ?",
+                list(fields.values()) + [file_id],
+            )
+        else:
+            # No audio_metadata row yet — insert one with just the provided fields
+            all_fields = {"file_id": file_id, **fields}
+            cols = ", ".join(all_fields.keys())
+            phs = ", ".join("?" * len(all_fields))
+            cat_conn.execute(
+                f"INSERT INTO audio_metadata ({cols}) VALUES ({phs})",
+                list(all_fields.values()),
+            )
         cat_conn.commit()
 
     # Refresh FTS

@@ -7,8 +7,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+
+from .auth import require_api_key
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -20,7 +22,7 @@ _status: dict[str, Any] = {
     "paths": [],
     "files_indexed": 0,
     "files_skipped": 0,
-    "files_errors": 0,
+    "files_errored": 0,
     "current_path": None,
     "started_at": None,
     "finished_at": None,
@@ -36,7 +38,7 @@ class ScanRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/scan/start")
-async def start_scan(req: ScanRequest):
+async def start_scan(req: ScanRequest, _: None = Depends(require_api_key)):
     from ..app import get_connections
     _, _, config = get_connections()
 
@@ -49,7 +51,7 @@ async def start_scan(req: ScanRequest):
             "paths": paths,
             "files_indexed": 0,
             "files_skipped": 0,
-            "files_errors": 0,
+            "files_errored": 0,
             "current_path": None,
             "started_at": time.time(),
             "finished_at": None,
@@ -96,7 +98,7 @@ async def catalogue_stats():
 
 
 @router.get("/fs/browse")
-async def browse_filesystem(path: str = Query(default="/")):
+async def browse_filesystem(path: str = Query(default="/"), _: None = Depends(require_api_key)):
     """List subdirectories at a given path for the file-browser UI."""
     target = Path(path).expanduser().resolve()
 
@@ -145,7 +147,7 @@ def _run_scan(paths: list[str], force: bool, config):
             with _lock:
                 _status["files_indexed"] = stats.files_indexed
                 _status["files_skipped"] = stats.files_skipped
-                _status["files_errors"] = getattr(stats, "files_errors", 0)
+                _status["files_errored"] = stats.files_errored
 
         run_indexer(
             [Path(p) for p in paths],

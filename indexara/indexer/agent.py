@@ -129,12 +129,21 @@ def run_indexer(
         pending_records.clear()
 
     # Mark missing files as deleted, scoped to scanned roots only
+    str_roots = [str(r.resolve()) for r in roots]
     if catalog_conn:
-        deleted = mark_missing_deleted(
-            catalog_conn, config.device_name, seen_ids,
-            roots=[str(r.resolve()) for r in roots],
+        from ..db.search_index import _delete_from_index
+        deleted_ids = mark_missing_deleted(
+            catalog_conn, config.device_name, seen_ids, roots=str_roots,
         )
-        stats.files_deleted += deleted
+        stats.files_deleted += len(deleted_ids)
+        # Also remove deleted files from the FTS index
+        if deleted_ids and search_conn:
+            with search_conn:
+                for fid in deleted_ids:
+                    _delete_from_index(search_conn, fid)
+    elif config.index_mode == "push":
+        # Propagate deletions to the central server
+        _push_deletions(config, seen_ids, str_roots)
 
     stats.duration_seconds = time.time() - start
 
@@ -175,3 +184,25 @@ def _push_batch(batch: IndexBatch, config: Config) -> None:
             resp.raise_for_status()
     except Exception as e:
         logger.error("Failed to push batch to server: %s", e)
+
+
+def _push_deletions(config: Config, seen_ids: set[str], roots: list[str]) -> None:
+    """Tell the server to mark files not in seen_ids (within roots) as deleted."""
+    try:
+        headers = {}
+        if config.api_key:
+            headers["X-API-Key"] = config.api_key
+        with httpx.Client(timeout=60) as client:
+            resp = client.post(
+                f"{config.server_url}/index/mark_deleted",
+                json={
+                    "device_name": config.device_name,
+                    "seen_ids": list(seen_ids),
+                    "roots": roots,
+                },
+                headers=headers,
+            )
+            resp.raise_for_status()
+        logger.info("Pushed deletion sync to server")
+    except Exception as e:
+        logger.error("Failed to push deletions to server: %s", e)

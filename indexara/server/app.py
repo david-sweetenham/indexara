@@ -1,6 +1,7 @@
 """FastAPI application factory."""
 from __future__ import annotations
 import logging
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -13,18 +14,32 @@ from ..db.connection import get_catalog_conn, get_search_conn
 
 logger = logging.getLogger(__name__)
 
-# Module-level connection storage (initialized at startup)
-_catalog_conn = None
-_search_conn = None
+# Thread-local connection storage — each worker thread gets its own SQLite connection.
+# This avoids sharing a single connection object across threads (which is unsafe even
+# with check_same_thread=False at the Python layer).
+_tls = threading.local()
+_catalog_db_path: str | None = None
+_search_db_path: str | None = None
 _config: Config | None = None
 
 
 def get_connections():
-    return _catalog_conn, _search_conn, _config
+    """Return (catalog_conn, search_conn, config) for the current thread.
+
+    On first call per thread, opens a fresh SQLite connection so that each
+    thread in the executor pool owns its own handle.
+    """
+    if not getattr(_tls, "initialized", False):
+        _tls.catalog_conn = get_catalog_conn(_catalog_db_path)
+        _tls.search_conn = get_search_conn(_search_db_path)
+        _tls.initialized = True
+    return _tls.catalog_conn, _tls.search_conn, _config
 
 
 def create_app(config: Config) -> FastAPI:
-    global _catalog_conn, _search_conn, _config
+    global _catalog_db_path, _search_db_path, _config
+    _catalog_db_path = config.catalog_db_path
+    _search_db_path = config.search_db_path
     _config = config
 
     app = FastAPI(
@@ -42,17 +57,10 @@ def create_app(config: Config) -> FastAPI:
 
     @app.on_event("startup")
     async def startup():
-        global _catalog_conn, _search_conn
-        _catalog_conn = get_catalog_conn(config.catalog_db_path)
-        _search_conn = get_search_conn(config.search_db_path)
+        # Initialise connections (and therefore schemas) for the event-loop thread.
+        # Worker threads each initialise lazily on first request.
+        get_connections()
         logger.info("Indexara server started. Catalog: %s", config.catalog_db_path)
-
-    @app.on_event("shutdown")
-    async def shutdown():
-        if _catalog_conn:
-            _catalog_conn.close()
-        if _search_conn:
-            _search_conn.close()
 
     # Import and register routes
     from .routes.index import router as index_router

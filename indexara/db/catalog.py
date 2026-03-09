@@ -60,8 +60,12 @@ def mark_deleted(conn: sqlite3.Connection, file_id: str) -> None:
 def mark_missing_deleted(
     conn: sqlite3.Connection, device_name: str, seen_ids: set[str],
     roots: list | None = None,
-) -> int:
-    """Mark files as deleted if not in seen_ids, scoped to the given roots."""
+) -> set[str]:
+    """Mark files as deleted if not in seen_ids, scoped to the given roots.
+
+    Returns the set of file IDs that were marked deleted so callers can
+    also clean up derived stores (e.g. the FTS index).
+    """
     if roots:
         existing = set()
         for root in roots:
@@ -85,7 +89,7 @@ def mark_missing_deleted(
             list(to_delete),
         )
         conn.commit()
-    return len(to_delete)
+    return to_delete
 
 
 def get_file(conn: sqlite3.Connection, file_id: str) -> FileRecord | None:
